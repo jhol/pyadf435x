@@ -1,0 +1,64 @@
+0.1.4 (2016-10-31)
+------------------
+
+ * Add FX2 firmware for the Hantek 6022BE and SainSmart DDS120 USB scopes.
+   These firmware files use the official sigrok USB VID/PID of 1D50:608E.
+   The USB VID/PID pairs are allocated for fx2lafw via the OpenMoko project:
+   http://wiki.openmoko.org/wiki/USB_Product_IDs
+ * Add analog channel support for the USBee AX (and potentially other devices).
+   Only one analog channel is supported. Switching channels (in case there
+   are multiple analog channels) is not yet implemented.
+ * Add support for the USBee ZX (bug #764).
+ * Use per-device USB product string descriptors.
+ * Bump the firmware version (major.minor) to 1.2. This version is
+   backwards-compatible and doesn't require host-side (libsigrok) changes.
+ * README: Update prebuilt firmware download location, other cleanups.
+ * HACKING: Prefer git pull requests over mailing list patches.
+
+0.1.3 (2015-11-26)
+------------------
+
+ * README: Drop references to obsolete sigrok-commits mailing list.
+ * Build system:
+     - Use non-recursive Make setup.
+     - Simplify and/or improve various parts of the build system.
+     - configure: Check the sdcc version (bug #696).
+ * Add firmware files for FX2 devices with official sigrok VID/PID:
+     - 1D50:608C: fx2lafw-sigrok-fx2-8ch.fw
+     - 1D50:608D: fx2lafw-sigrok-fx2-16ch.fw
+   The USB VID/PID pairs are allocated for fx2lafw via the OpenMoko project:
+   http://wiki.openmoko.org/wiki/USB_Product_IDs
+
+0.1.2 (2014-05-06)
+------------------
+
+ * Fix an issue which lead to the data pins not being tri-stated after an
+   aquisition (when the GPIF is idle) but rather being driven.
+ * Bump the firmware version (major.minor) to 1.1. This version is
+   backwards-compatible and doesn't require host-side (libsigrok) changes.
+
+0.1.1 (2013-04-16)
+------------------
+
+ * Add support for the USBee DX. Only digital sampling is supported (as is
+   the case for all other supported devices so far). Analog data acquisition
+   is currently not implemented.
+ * Add support for devices with the older Cypress CY7C68013 (FX2) chip
+   instead of the more recent Cypress CY7C68013A (FX2LP). See also:
+   http://sigrok.org/wiki/Fx2lafw#Cypress_FX2_vs._FX2LP
+ * Convert to a standard autotools based build/configuration system.
+   Installation is now: ./configure && make && make install
+ * README: Update status, website URLs, requirements, etc.
+ * Add the usual HACKING, AUTHORS, and INSTALL files.
+ * Add a 'distbin' Make target, which creates a convenience tarball
+   containing just the generated *.fw files.
+ * Document the download location for the pre-built firmware files tarball.
+ * If 'objcopy' is not found, try to use sdcc's 'makebin' instead.
+   This fixes the build e.g. on some Mac OS X systems without 'objcopy'.
+ * Add support for differently named sdcc tools on various distros.
+
+0.1.0 (2012-07-24)
+------------------
+
+ * Initial release.
+

@@ -1,0 +1,35 @@
+# autotools cruft
+/INSTALL
+/Makefile.in
+/aclocal.m4
+/autom4te.cache/
+/autostuff/
+/configure
+/configure.lineno
+
+# Editor/IDE cruft
+*.kate-swp
+*~
+/*.kdev4
+/Makefile.am.user
+
+# Configure/build cruft
+*.asm
+*.cdb
+*.fw
+*.ihx
+*.lib
+*.lk
+*.lnk
+*.lst
+*.map
+*.mem
+*.omf
+*.rel
+*.rst
+*.sym
+.dirstamp
+/Makefile
+/config.*
+/sigrok-firmware-fx2lafw-*.tar.*
+stamp-h?

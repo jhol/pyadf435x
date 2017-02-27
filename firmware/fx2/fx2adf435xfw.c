@@ -35,6 +35,10 @@
 #include <eputils.h>
 #include <command.h>
 
+#define LE_IO 0x1
+#define CLK_IO 0x2
+#define DAT_IO 0x4
+
 /* ... */
 volatile __bit got_sud;
 BYTE vendor_command;
@@ -110,6 +114,30 @@ void hispeed_isr(void) __interrupt HISPEED_ISR
 	CLEAR_HISPEED();
 }
 
+static void set_reg(void)
+{
+	int i = 0;
+	const BYTE *data = EP0BUF + 3;
+	BYTE b = 0;
+
+	IOA &= ~LE_IO;
+
+	while (i != 32) {
+		if (i++ % 8 == 0)
+			b = *data--;
+
+		IOA = (IOA & ~(DAT_IO | CLK_IO)) | ((b & 0x80) ? DAT_IO : 0);
+		SYNCDELAY16;
+		IOA |= CLK_IO;
+
+		b <<= 1;
+	}
+
+	IOA = (IOA & ~CLK_IO);
+	SYNCDELAY16;
+	IOA |= LE_IO;
+}
+
 void fx2adf435xfw_init(void)
 {
 	/* Set DYN_OUT and ENH_PKT bits, as recommended by the TRM. */
@@ -117,6 +145,10 @@ void fx2adf435xfw_init(void)
 
 	got_sud = FALSE;
 	vendor_command = 0xff;
+
+	/* Set the SPI pins to output */
+	OEA = LE_IO | DAT_IO | CLK_IO;
+	IOA = LE_IO | DAT_IO | CLK_IO;
 
 	/* Renumerate. */
 	RENUMERATE_UNCOND();
@@ -147,8 +179,8 @@ void fx2adf435xfw_poll(void)
 		if ((EP0CS & bmEPBUSY) != 0)
 			break;
 
-		if (EP0BCL == 5) {
-		}
+		if (EP0BCL == 4)
+			set_reg();
 
 		/* Acknowledge the vendor command. */
 		vendor_command = 0xff;

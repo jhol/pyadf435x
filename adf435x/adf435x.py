@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import argparse
+import inspect
 from math import ceil, floor, log
 import interfaces
 
@@ -189,6 +191,34 @@ def make_regs(
 
 
 if __name__ == '__main__':
-    intf = interfaces.FX2()
-    for reg in [0x580005, 0xEC803C, 0x4B3, 0x4E42, 0x8008011, 0x400000]:
-        intf.set_reg(reg)
+    parser = argparse.ArgumentParser(description='Controls an ADF4350/1')
+
+    # Populate arguments
+    make_regs_spec = inspect.getargspec(make_regs)
+    for arg, default in zip(make_regs_spec.args, make_regs_spec.defaults):
+        parser.add_argument('--' + arg.lower().replace('_', '-'), default=default)
+
+    for r in range(6):
+        parser.add_argument('--r%d' % r, default=None, type=str)
+
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('--interface', default='FX2')
+
+    # Parse
+    args = vars(parser.parse_args())
+
+    # Generate register values
+    make_regs_args = {arg : args[arg.lower()] for arg in make_regs_spec.args}
+    regs = make_regs(**make_regs_args)
+
+    for i in range(6):
+        r = args['r%d' % i]
+        if r != None:
+            regs[i] = int(r, 0)
+
+    if args['verbose']:
+        for r in range(6):
+            print('r%d = 0x%08x' % (r, regs[r]))
+
+    intf = getattr(globals()['interfaces'], args['interface'])()
+    intf.set_regs(regs[::-1])

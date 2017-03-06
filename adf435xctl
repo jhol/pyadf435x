@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+
+from collections import OrderedDict
+import adf435x
+import adf435x.interfaces
+import argparse
+import inspect
+
+parser = argparse.ArgumentParser(description='Controls an ADF4350/1')
+
+# Populate arguments
+calculate_regs_spec = inspect.getargspec(adf435x.calculate_regs)
+make_regs_spec = inspect.getargspec(adf435x.make_regs)
+
+arg_dict = OrderedDict()
+for arg, default in zip(calculate_regs_spec.args, calculate_regs_spec.defaults):
+    arg_dict[arg] = default
+for arg, default in zip(make_regs_spec.args, make_regs_spec.defaults):
+    if arg not in arg_dict:
+        arg_dict[arg] = default
+
+for arg in arg_dict.keys():
+    val=arg_dict[arg]
+    parser.add_argument('--' + arg.lower().replace('_', '-'),
+            default=val, type=type(val))
+
+for r in range(6):
+    parser.add_argument('--r%d' % r, default=None, type=str)
+
+parser.add_argument('-v', '--verbose', action='store_true')
+parser.add_argument('--interface', default='FX2')
+
+# Parse
+args = vars(parser.parse_args())
+
+# Generate register values
+calculate_regs_kw = {arg : args[arg.lower()]
+        for arg in calculate_regs_spec.args}
+kw = {arg : args[arg.lower()] for arg in make_regs_spec.args}
+kw['INT'], kw['MOD'], kw['FRAC'], kw['output_divider'], \
+    kw['band_select_clock_divider'] = adf435x.calculate_regs(
+            **calculate_regs_kw)
+regs = adf435x.make_regs(**kw)
+
+for i in range(6):
+    r = args['r%d' % i]
+    if r != None:
+        regs[i] = int(r, 0)
+
+if args['verbose']:
+    for r in range(6):
+        print('r%d = 0x%08x' % (r, regs[r]))
+
+intf = getattr(adf435x.interfaces, args['interface'])()
+intf.set_regs(regs[::-1])

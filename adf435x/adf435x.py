@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from collections import OrderedDict
 import inspect
 from math import ceil, floor, log
 import interfaces
@@ -56,6 +57,89 @@ class LDPinMode:
     Low = 0
     DigitalLockDetect = 1
     High = 3
+
+
+def calculate_regs(
+        device_type=DeviceType.ADF4351,
+        freq=50.0,
+        ref_freq=25.0,
+        r_counter=1,
+        ref_doubler=False,
+        ref_div2=False,
+        feedback_select=FeedbackSelect.Fundamental,
+        band_select_clock_divider=None,
+        band_select_clock_mode=BandSelectClockMode.Low,
+        enable_gcd=True):
+    def gcd(a, b):
+        while True:
+            if a == 0:
+                return b
+            elif b == 0:
+                return a
+            elif a > b:
+                a = a % b
+            else:
+                b = b % a
+
+
+    pfd_freq = ((ref_freq * (2 if ref_doubler else 1)) /
+        ((2 if ref_div2 else 1) * r_counter))
+
+    for log2_output_divider in range(7):
+        output_divider = 2 ** log2_output_divider
+        if 2200.0 / output_divider <= freq:
+            break
+
+    if feedback_select == FeedbackSelect.Fundamental:
+        N = freq * output_divider / pfd_freq
+    else:
+        N = freq / pfd_freq
+
+    INT = int(floor(N))
+    MOD = int(round(1000.0 * pfd_freq))
+    FRAC = int(round((N - INT) * MOD))
+
+    if enable_gcd:
+        div = gcd(MOD, FRAC)
+        MOD = MOD / div
+        FRAC = FRAC / div
+
+    if MOD == 1:
+        MOD = 2
+
+    if pfd_freq > 32.0:
+        if FRAC != 0:
+            raise ValueError('Maximum PFD frequency in Frac-N mode (FRAC != 0)'
+                    ' is 32MHz.')
+        if FRAC == 0 and device_type == DeviceType.ADF4351:
+            if pfd_freq > 90.0:
+                raise ValueError('Maximum PFD frequency in Int-N mode '
+                        '(FRAC = 0) is 90MHz.')
+            if band_select_clock_mode == BandSelectClockMode.Low:
+                raise ValueError('Band Select Clock Mode must be set to High '
+                        'when PFD is >32MHz in Int-N mode (FRAC = 0).')
+
+    if not band_select_clock_divider:
+        pfd_scale = 8 if band_select_clock_mode == BandSelectClockMode.Low else 2
+        if band_select_clock_mode == BandSelectClockMode.Low:
+            band_select_clock_divider = min(ceil(8 * pfd_freq), 255)
+
+    band_select_clock_freq = 1000.0 * pfd_freq / band_select_clock_divider
+
+    if band_select_clock_freq > 500.0:
+        raise ValueError('Band Select Clock Frequency is too High. It must be '
+                '500kHz or less.')
+    elif band_select_clock_freq > 125.0:
+        if device_type == DeviceType.ADF4351:
+            if band_select_clock_mode == BandSelectClockMode.Low:
+                raise ValueError('Band Select Clock Frequency is too high. '
+                        'Reduce to 125kHz or less, or set Band Select Clock '
+                        'Mode to High.')
+        else:
+            raise ValueError('Band Select Clock Frequency is too high. Reduce '
+                    'to 125kHz or less.')
+
+    return (int(INT), int(MOD), int(FRAC), output_divider, band_select_clock_divider)
 
 
 def make_regs(
@@ -194,9 +278,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Controls an ADF4350/1')
 
     # Populate arguments
+    calculate_regs_spec = inspect.getargspec(calculate_regs)
     make_regs_spec = inspect.getargspec(make_regs)
+
+    arg_dict = OrderedDict()
+    for arg, default in zip(calculate_regs_spec.args, calculate_regs_spec.defaults):
+        arg_dict[arg] = default
     for arg, default in zip(make_regs_spec.args, make_regs_spec.defaults):
-        parser.add_argument('--' + arg.lower().replace('_', '-'), default=default)
+        if arg not in arg_dict:
+            arg_dict[arg] = default
+
+    for arg in arg_dict.keys():
+        val=arg_dict[arg]
+        parser.add_argument('--' + arg.lower().replace('_', '-'),
+                default=val, type=type(val))
 
     for r in range(6):
         parser.add_argument('--r%d' % r, default=None, type=str)
@@ -208,8 +303,13 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     # Generate register values
-    make_regs_args = {arg : args[arg.lower()] for arg in make_regs_spec.args}
-    regs = make_regs(**make_regs_args)
+    calculate_regs_kw = {arg : args[arg.lower()]
+            for arg in calculate_regs_spec.args}
+    kw = {arg : args[arg.lower()] for arg in make_regs_spec.args}
+    kw['INT'], kw['MOD'], kw['FRAC'], kw['output_divider'], \
+        kw['band_select_clock_divider'] = calculate_regs(
+                **calculate_regs_kw)
+    regs = make_regs(**kw)
 
     for i in range(6):
         r = args['r%d' % i]

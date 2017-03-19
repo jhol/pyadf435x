@@ -18,12 +18,24 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/spi.h>
 #include <libopencm3/usb/usbd.h>
 
 #define PORT_LED GPIOC
 #define PIN_LED GPIO13
+
+#define PORT_SPI GPIOA
+#define PIN_LE GPIO4
+#define PIN_CLK GPIO5
+#define PIN_DAT GPIO7
+
+#define SPI SPI1
+
+#define USB_REQ_SET_REG 0x40
 
 const struct usb_device_descriptor dev = {
 	.bLength = USB_DT_DEVICE_SIZE,
@@ -77,16 +89,48 @@ const char *usb_strings[] = {
 	"ADF4xxx USB Eval Board"
 };
 
-uint16_t usbd_control_buffer[64];
+uint32_t usbd_control_buffer[32];
 
-static void clock_setup(void)
+bool have_reg = false;
+uint32_t reg = 0;
+
+static void setup(void)
 {
+	/* Clock setup */
 	rcc_clock_setup_in_hse_8mhz_out_72mhz();
 
+	rcc_periph_clock_enable(RCC_DMA1);
+	rcc_periph_clock_enable(RCC_AFIO);
 	rcc_periph_clock_enable(RCC_GPIOA);
 	rcc_periph_clock_enable(RCC_GPIOC);
+	rcc_periph_clock_enable(RCC_SPI1);
 	rcc_periph_clock_enable(RCC_OTGFS);
+
+	/* LED output */
+	gpio_set_mode(PORT_LED, GPIO_MODE_OUTPUT_2_MHZ,
+		GPIO_CNF_OUTPUT_PUSHPULL, PIN_LED);
+
+	/* SPI1 NSS, SCK, MOSI */
+	gpio_set_mode(PORT_SPI, GPIO_MODE_OUTPUT_50_MHZ,
+		GPIO_CNF_OUTPUT_PUSHPULL, PIN_LE);
+	gpio_set(PORT_SPI, PIN_LE);
+	gpio_set_mode(PORT_SPI, GPIO_MODE_OUTPUT_50_MHZ,
+		GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, PIN_CLK | PIN_DAT);
+
+	spi_init_master(SPI, 0, SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE,
+		SPI_CR1_CPHA_CLK_TRANSITION_1, SPI_CR1_DFF_8BIT,
+                SPI_CR1_MSBFIRST);
+	spi_set_baudrate_prescaler(SPI, SPI_CR1_BR_FPCLK_DIV_64);
+
+	spi_enable_software_slave_management(SPI1);
+	spi_set_nss_high(SPI1);
+	spi_enable(SPI1);
+
+	/* DMA */
+	nvic_set_priority(NVIC_DMA1_CHANNEL3_IRQ, 0);
+	nvic_enable_irq(NVIC_DMA1_CHANNEL3_IRQ);
 }
+
 
 static int vendor_control_callback(usbd_device *usbd_dev, struct usb_setup_data *req, uint8_t **buf,
 		uint16_t *len, void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req))
@@ -96,12 +140,38 @@ static int vendor_control_callback(usbd_device *usbd_dev, struct usb_setup_data 
 	(void)complete;
 	(void)usbd_dev;
 
-	if (req->bmRequestType != 0x40)
+	switch (req->bmRequestType) {
+	case USB_REQ_SET_REG: {
+		if (*len != 4)
+			return USBD_REQ_NOTSUPP;
+
+		reg = ((*buf)[0] << 24) | ((*buf)[1] << 16) |
+			((*buf)[2] << 8) | (*buf)[3];
+
+		gpio_clear(PORT_SPI, PIN_LE);
+
+		dma_channel_reset(DMA1, DMA_CHANNEL3);
+
+		dma_set_peripheral_address(DMA1, DMA_CHANNEL3, (uint32_t)&SPI1_DR);
+		dma_set_memory_address(DMA1, DMA_CHANNEL3, (uint32_t)&reg);
+		dma_set_number_of_data(DMA1, DMA_CHANNEL3, sizeof(reg));
+		dma_set_read_from_memory(DMA1, DMA_CHANNEL3);
+		dma_enable_memory_increment_mode(DMA1, DMA_CHANNEL3);
+		dma_set_peripheral_size(DMA1, DMA_CHANNEL3, DMA_CCR_PSIZE_8BIT);
+		dma_set_memory_size(DMA1, DMA_CHANNEL3, DMA_CCR_MSIZE_8BIT);
+		dma_set_priority(DMA1, DMA_CHANNEL3, DMA_CCR_PL_HIGH);
+
+		dma_enable_transfer_complete_interrupt(DMA1, DMA_CHANNEL3);
+		dma_enable_channel(DMA1, DMA_CHANNEL3);
+
+		spi_enable_tx_dma(SPI);
+
+		return USBD_REQ_HANDLED;
+	}
+
+	default:
 		return USBD_REQ_NOTSUPP;
-
-	gpio_toggle(PORT_LED, PIN_LED);
-
-	return USBD_REQ_HANDLED;
+	}
 }
 
 static void usb_set_config_cb(usbd_device *usbd_dev, uint16_t wValue)
@@ -111,21 +181,35 @@ static void usb_set_config_cb(usbd_device *usbd_dev, uint16_t wValue)
 		USB_REQ_TYPE_TYPE, vendor_control_callback);
 }
 
+/* SPI transmit completed with DMA */
+void dma1_channel3_isr(void)
+{
+	if (DMA1_ISR & DMA_ISR_TCIF3)
+		DMA1_IFCR |= DMA_IFCR_CTCIF3;
+
+	dma_disable_transfer_complete_interrupt(DMA1, DMA_CHANNEL3);
+	spi_disable_tx_dma(SPI1);
+	dma_disable_channel(DMA1, DMA_CHANNEL3);
+}
+
+static void spi_poll(void)
+{
+	if (!(SPI_SR(SPI) & SPI_SR_BSY))
+		gpio_set(PORT_SPI, PIN_LE);
+}
+
 int main(void)
 {
-	usbd_device *usbd_dev;
+	setup();
 
-	clock_setup();
-
-	/* LED output */
-	gpio_set_mode(PORT_LED, GPIO_MODE_OUTPUT_2_MHZ,
-		GPIO_CNF_OUTPUT_PUSHPULL, PIN_LED);
-
-	usbd_dev = usbd_init(&st_usbfs_v1_usb_driver, &dev, &config, usb_strings, 2,
-		(uint8_t*)usbd_control_buffer, sizeof(usbd_control_buffer));
+	usbd_device *const usbd_dev = usbd_init(&st_usbfs_v1_usb_driver, &dev,
+		&config, usb_strings, 2, (uint8_t*)usbd_control_buffer,
+		sizeof(usbd_control_buffer));
 	usbd_register_set_config_callback(usbd_dev, usb_set_config_cb);
 
-	while (1)
+	while (1) {
 		usbd_poll(usbd_dev);
+		spi_poll();
+	}
 }
 

@@ -79,6 +79,15 @@ const char *usb_strings[] = {
 
 uint16_t usbd_control_buffer[64];
 
+static void clock_setup(void)
+{
+	rcc_clock_setup_in_hse_8mhz_out_72mhz();
+
+	rcc_periph_clock_enable(RCC_GPIOA);
+	rcc_periph_clock_enable(RCC_GPIOC);
+	rcc_periph_clock_enable(RCC_OTGFS);
+}
+
 static int vendor_control_callback(usbd_device *usbd_dev, struct usb_setup_data *req, uint8_t **buf,
 		uint16_t *len, void (**complete)(usbd_device *usbd_dev, struct usb_setup_data *req))
 {
@@ -106,11 +115,7 @@ int main(void)
 {
 	usbd_device *usbd_dev;
 
-	rcc_clock_setup_in_hse_8mhz_out_72mhz();
-
-	rcc_periph_clock_enable(RCC_GPIOA);
-	rcc_periph_clock_enable(RCC_GPIOC);
-	rcc_periph_clock_enable(RCC_OTGFS);
+	clock_setup();
 
 	/* LED output */
 	gpio_set_mode(PORT_LED, GPIO_MODE_OUTPUT_2_MHZ,

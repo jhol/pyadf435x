@@ -1,3 +1,6 @@
 [submodule "firmware/fx2/fx2lib"]
 	path = firmware/fx2/fx2lib
 	url = https://github.com/djmuhlestein/fx2lib
+[submodule "firmware/stm32/libopencm3"]
+	path = firmware/stm32/libopencm3
+	url = https://github.com/libopencm3/libopencm3.git

@@ -15,7 +15,10 @@
 
 # Configure/build cruft
 *.asm
+*.bin
 *.cdb
+*.d
+*.elf
 *.fw
 *.ihx
 *.lib
@@ -24,6 +27,7 @@
 *.lst
 *.map
 *.mem
+*.o
 *.omf
 *.rel
 *.rst

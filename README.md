@@ -112,3 +112,37 @@ The firmware requires the following wiring:
    ```
    The device will no renumerate as with the VID/PID `0456:b40d`, as an Analog
    Devices board.
+
+
+stm32f103adf435xfw
+------------------
+
+
+1. First init/update all the sub-modules within the git repository:
+   ```
+   $ git submodule update --init
+   ```
+
+2. Install GNU Make, OpenOCD, and ARM builds of GCC compiler and Newlib.
+
+   On Debian/Ubuntu:
+   ```
+   sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi make openocd
+   ```
+
+3. Build *libopencm3*:
+   ```
+   $ cd firmware/stm32f103/libopencm3
+   $ make
+   ```
+
+4. Build *stm32f103adf435xfw*:
+   ```
+   $ cd ..
+   $ make
+   ```
+
+5. Run OpenOCD:
+   ```
+   sudo openocd -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
+   ```

@@ -11,6 +11,8 @@ The software suite consists of the following components:
 * **adf435xctl** - A command line tool to control the ADF4350/1 manually.
 * **fx2adf435xfw** - A firmware for the Cypress FX2 that replaces the
   proprietary firmware for the EVAL-ADF4351 board.
+* **stm32adf435xfw**  - A similar firmware for the STM32F103.
+
 
 adf435x
 -------
@@ -114,9 +116,18 @@ The firmware requires the following wiring:
    Devices board.
 
 
-stm32f103adf435xfw
-------------------
+stm32adf435xfw
+--------------
 
+The firmware requires the following wiring:
+
+|  STM32F103 Pin  |  ADF4350/1 Pin  |
+|  -------------  |  -------------  |
+|  PA4            |  LE             |
+|  PA5            |  CLK            |
+|  PA7            |  DAT            |
+
+### Building & Installation
 
 1. First init/update all the sub-modules within the git repository:
    ```
@@ -145,4 +156,13 @@ stm32f103adf435xfw
 5. Run OpenOCD:
    ```
    sudo openocd -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
+   ```
+
+6. Install the firmware:
+   ```
+   telnet localhost 4444
+
+   > reset halt
+   > flash write_image erase /path/to/stm32adf435xfw.bin
+   > reset
    ```

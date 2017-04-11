@@ -1,4 +1,4 @@
-##
+#
 ## This file is part of the libsigrokdecode project.
 ##
 ## Copyright (C) 2017 Joel Holdsworth <joel@airwebreathe.org.uk>

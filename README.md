@@ -163,6 +163,6 @@ The firmware requires the following wiring:
    telnet localhost 4444
 
    > reset halt
-   > flash write_image erase /path/to/stm32adf435xfw.bin
+   > flash write_image erase /path/to/stm32adf435xfw.bin 0x08000000
    > reset
    ```

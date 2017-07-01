@@ -19,6 +19,7 @@
  */
 
 #include <libopencm3/cm3/nvic.h>
+#include <libopencm3/cm3/systick.h>
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
@@ -36,6 +37,8 @@
 #define SPI SPI1
 
 #define USB_REQ_SET_REG 0x40
+
+#define LED_TIMEOUT 100
 
 const struct usb_device_descriptor dev = {
 	.bLength = USB_DT_DEVICE_SIZE,
@@ -93,6 +96,7 @@ uint32_t usbd_control_buffer[32];
 
 bool have_reg = false;
 uint32_t reg = 0;
+unsigned int led_countdown = 0;
 
 static void setup(void)
 {
@@ -102,13 +106,22 @@ static void setup(void)
 	rcc_periph_clock_enable(RCC_DMA1);
 	rcc_periph_clock_enable(RCC_AFIO);
 	rcc_periph_clock_enable(RCC_GPIOA);
+	rcc_periph_clock_enable(RCC_GPIOB);
 	rcc_periph_clock_enable(RCC_GPIOC);
 	rcc_periph_clock_enable(RCC_SPI1);
 	rcc_periph_clock_enable(RCC_OTGFS);
 
+	/* Systick setup */
+	systick_set_clocksource(STK_CSR_CLKSOURCE_AHB_DIV8);
+	STK_CVR = 0;
+	systick_set_reload(rcc_ahb_frequency / 8 / 1000);
+	systick_counter_enable();
+	systick_interrupt_enable();
+
 	/* LED output */
 	gpio_set_mode(PORT_LED, GPIO_MODE_OUTPUT_2_MHZ,
 		GPIO_CNF_OUTPUT_PUSHPULL, PIN_LED);
+	gpio_clear(PORT_LED, PIN_LED);
 
 	/* SPI1 NSS, SCK, MOSI */
 	gpio_set_mode(PORT_SPI, GPIO_MODE_OUTPUT_50_MHZ,
@@ -166,6 +179,9 @@ static int vendor_control_callback(usbd_device *usbd_dev, struct usb_setup_data 
 
 		spi_enable_tx_dma(SPI);
 
+		gpio_set(PORT_LED, PIN_LED);
+		led_countdown = LED_TIMEOUT;
+
 		return USBD_REQ_HANDLED;
 	}
 
@@ -179,6 +195,12 @@ static void usb_set_config_cb(usbd_device *usbd_dev, uint16_t wValue)
 	(void)wValue;
 	usbd_register_control_callback(usbd_dev, USB_REQ_TYPE_VENDOR,
 		USB_REQ_TYPE_TYPE, vendor_control_callback);
+}
+
+void sys_tick_handler(void)
+{
+	if (led_countdown && !--led_countdown)
+		gpio_clear(PORT_LED, PIN_LED);
 }
 
 /* SPI transmit completed with DMA */

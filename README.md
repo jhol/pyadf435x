@@ -143,7 +143,7 @@ The firmware requires the following wiring:
 
 3. Build *libopencm3*:
    ```
-   $ cd firmware/stm32f103/libopencm3
+   $ cd firmware/stm32/libopencm3
    $ make
    ```
 

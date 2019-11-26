@@ -55,7 +55,7 @@ Requires **adf435x** to be installed.
 Sets the output frequency to 1000MHz:
 
 ```
-./adf435x --freq=1000
+./adf435xctl --freq=1000
 ```
 
 fx2adf435xfw

@@ -239,11 +239,11 @@ $(dirstamps):
 
 fx2lib/lib/fx2.lib: $(fx2lib_objects)
 	-$(AM_V_at)rm -f $@
-	$(AM_V_GEN)$(SDCCLIB) $@ $(fx2lib_objects)
+	$(AM_V_GEN)$(SDAR) -rc $@ $(fx2lib_objects)
 
 fx2lib/lib/interrupts/ints.lib: $(fx2lib_ints_objects)
 	-$(AM_V_at)rm -f $@
-	$(AM_V_GEN)$(SDCCLIB) $@ $(fx2lib_ints_objects)
+	$(AM_V_GEN)$(SDAR) -rc $@ $(fx2lib_ints_objects)
 
 fx2adf435xfw.ihx: $(fx2adf435xfw_objects) $(fx2lib_libs)
 	$(AM_V_GEN)$(SDCC) -mmcs51 $(SDCC_LINK_FLAGS) -o $@ $(fx2adf435xfw_objects) $(fx2lib_libs)

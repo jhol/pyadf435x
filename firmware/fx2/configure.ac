@@ -36,9 +36,9 @@ AC_CHECK_PROGS([SDCC], [sdcc sdcc-sdcc])
 AS_IF([test "x$SDCC" = x],
 	[AC_MSG_ERROR([cannot find sdcc.])])
 
-AC_CHECK_PROGS([SDCCLIB], [sdcclib sdcc-sdcclib])
-AS_IF([test "x$SDCCLIB" = x],
-	[AC_MSG_ERROR([cannot find sdcclib.])])
+AC_CHECK_PROGS([SDAR], [sdar sdcc-sdar])
+AS_IF([test "x$SDAR" = x],
+	[AC_MSG_ERROR([cannot find sdar.])])
 
 sf_sdcc_version=`$SDCC --version | sed -n 's/.* \([[0-9]][[0-9]]*\.[[0-9]][[0-9]]*\.[[0-9]][[0-9]]*\) .*/\1/p;q' 2>&AS_MESSAGE_LOG_FD`
 AS_VERSION_COMPARE([$sf_sdcc_version], [2.9.0],

@@ -14,6 +14,9 @@ The software suite consists of the following components:
 * **stm32adf435xfw**  - A similar firmware for the STM32F103.
 
 
+It's also possible to use the [Bus Pirate](http://dangerousprototypes.com/docs/Bus_Pirate) as the interface for the ``SPI``
+communications, simply using the ``adf435x.interfaces.BusPirate`` class.
+
 adf435x
 -------
 

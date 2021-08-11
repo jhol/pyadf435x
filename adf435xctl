@@ -27,8 +27,8 @@ import inspect
 parser = argparse.ArgumentParser(description='Controls an ADF4350/1')
 
 # Populate arguments
-calculate_regs_spec = inspect.getargspec(adf435x.calculate_regs)
-make_regs_spec = inspect.getargspec(adf435x.make_regs)
+calculate_regs_spec = inspect.getfullargspec(adf435x.calculate_regs)
+make_regs_spec = inspect.getfullargspec(adf435x.make_regs)
 
 arg_dict = OrderedDict()
 for arg, default in zip(calculate_regs_spec.args, calculate_regs_spec.defaults):
